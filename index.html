@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101813">
+  <title>Phone Compass</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101813;
+      --panel: #17211b;
+      --panel-2: #1e2b23;
+      --text: #f5fbf6;
+      --muted: #9fb2a5;
+      --accent: #ffcf5a;
+      --accent-2: #67e0c3;
+      --danger: #ff7d7d;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-width: 280px;
+    }
+
+    button {
+      border: 0;
+      font: inherit;
+    }
+
+    input {
+      font: inherit;
+    }
+
+    .app {
+      min-height: 100%;
+      padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 14px;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(103, 224, 195, 0.12), transparent 34%),
+        linear-gradient(180deg, #101813 0%, #0b100d 100%);
+    }
+
+    .topbar,
+    .readout,
+    .status {
+      width: min(100%, 420px);
+      justify-self: center;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .pill {
+      min-height: 32px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      box-shadow: 0 0 0 4px rgba(255, 125, 125, 0.12);
+    }
+
+    .dot.live {
+      background: var(--accent-2);
+      box-shadow: 0 0 0 4px rgba(103, 224, 195, 0.13);
+    }
+
+    .compass-wrap {
+      display: grid;
+      place-items: center;
+      min-height: 0;
+    }
+
+    .compass {
+      position: relative;
+      width: min(86vw, 390px, 68vh);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle, rgba(255, 255, 255, 0.06) 0 34%, transparent 35%),
+        conic-gradient(from 0deg, rgba(255, 207, 90, 0.26), rgba(103, 224, 195, 0.16), rgba(255, 255, 255, 0.08), rgba(255, 207, 90, 0.26)),
+        var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, 0.38), inset 0 0 0 10px rgba(255, 255, 255, 0.035);
+    }
+
+    .ring {
+      position: absolute;
+      inset: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      transform: rotate(var(--dial-rotation, 0deg));
+      transition: transform 160ms ease-out;
+    }
+
+    .tick {
+      position: absolute;
+      inset: 9px;
+      border-radius: 50%;
+      transform: rotate(calc(var(--i) * 15deg));
+    }
+
+    .tick::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 2px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.26);
+      transform: translateX(-50%);
+    }
+
+    .tick.major::before {
+      height: 18px;
+      width: 3px;
+      background: rgba(255, 255, 255, 0.58);
+    }
+
+    .cardinal {
+      position: absolute;
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      color: var(--text);
+      font-size: 17px;
+      font-weight: 860;
+      transform: translate(-50%, -50%) rotate(calc(-1 * var(--dial-rotation, 0deg)));
+    }
+
+    .north {
+      color: var(--accent);
+      text-shadow: 0 0 18px rgba(255, 207, 90, 0.35);
+    }
+
+    .needle {
+      position: absolute;
+      z-index: 2;
+      width: 11%;
+      height: 42%;
+      bottom: 50%;
+      left: 50%;
+      transform: translateX(-50%);
+      transform-origin: bottom center;
+      filter: drop-shadow(0 11px 20px rgba(0, 0, 0, 0.46));
+    }
+
+    .needle::before,
+    .needle::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: min(4.8vw, 20px) solid transparent;
+      border-right: min(4.8vw, 20px) solid transparent;
+    }
+
+    .needle::before {
+      top: 0;
+      border-bottom: min(38vw, 154px) solid var(--accent);
+    }
+
+    .needle::after {
+      top: 50%;
+      border-top: min(18vw, 76px) solid #e8f4ec;
+      opacity: 0.82;
+    }
+
+    .hub {
+      z-index: 3;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #f7fff9;
+      color: #101813;
+      box-shadow: 0 8px 26px rgba(0, 0, 0, 0.38);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .readout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .metric {
+      min-width: 0;
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+    }
+
+    .label {
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      text-transform: uppercase;
+    }
+
+    .value {
+      font-size: clamp(22px, 8vw, 35px);
+      font-weight: 860;
+      line-height: 1;
+    }
+
+    .status {
+      min-height: 98px;
+      padding: 14px;
+      border-radius: 8px;
+      background: var(--panel-2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.42;
+    }
+
+    .server-field {
+      margin-top: 12px;
+    }
+
+    .server-field label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      text-transform: uppercase;
+    }
+
+    .server-input {
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      outline: none;
+    }
+
+    .server-input:focus {
+      border-color: rgba(103, 224, 195, 0.72);
+      box-shadow: 0 0 0 3px rgba(103, 224, 195, 0.12);
+    }
+
+    .server-input::placeholder {
+      color: rgba(245, 251, 246, 0.46);
+    }
+
+    .action {
+      width: 100%;
+      min-height: 48px;
+      margin-top: 12px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #171205;
+      font-weight: 850;
+      box-shadow: 0 12px 26px rgba(255, 207, 90, 0.18);
+    }
+
+    .action:active {
+      transform: translateY(1px);
+    }
+
+    .desktop-block {
+      display: none;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .app {
+        display: none;
+      }
+
+      .desktop-block {
+        min-height: 100%;
+        padding: 28px;
+        display: grid;
+        place-items: center;
+        background: #101813;
+        color: var(--text);
+      }
+
+      .desktop-message {
+        width: min(420px, 100%);
+        padding: 22px;
+        border-radius: 8px;
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        line-height: 1.45;
+      }
+
+      .desktop-message h2 {
+        margin: 0 0 8px;
+        font-size: 24px;
+      }
+
+      .desktop-message p {
+        margin: 0;
+        color: var(--muted);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" aria-label="Phone compass">
+    <header class="topbar">
+      <h1>Phone Compass</h1>
+      <div class="pill" aria-live="polite"><span class="dot" id="liveDot"></span><span id="sensorState">Waiting</span></div>
+    </header>
+
+    <section class="compass-wrap" aria-label="Compass dial">
+      <div class="compass" id="compass">
+        <div class="ring" id="ring" aria-hidden="true">
+          <div class="tick major" style="--i: 0"></div>
+          <div class="tick" style="--i: 1"></div>
+          <div class="tick" style="--i: 2"></div>
+          <div class="tick major" style="--i: 3"></div>
+          <div class="tick" style="--i: 4"></div>
+          <div class="tick" style="--i: 5"></div>
+          <div class="tick major" style="--i: 6"></div>
+          <div class="tick" style="--i: 7"></div>
+          <div class="tick" style="--i: 8"></div>
+          <div class="tick major" style="--i: 9"></div>
+          <div class="tick" style="--i: 10"></div>
+          <div class="tick" style="--i: 11"></div>
+          <div class="tick major" style="--i: 12"></div>
+          <div class="tick" style="--i: 13"></div>
+          <div class="tick" style="--i: 14"></div>
+          <div class="tick major" style="--i: 15"></div>
+          <div class="tick" style="--i: 16"></div>
+          <div class="tick" style="--i: 17"></div>
+          <div class="tick major" style="--i: 18"></div>
+          <div class="tick" style="--i: 19"></div>
+          <div class="tick" style="--i: 20"></div>
+          <div class="tick major" style="--i: 21"></div>
+          <div class="tick" style="--i: 22"></div>
+          <div class="tick" style="--i: 23"></div>
+          <div class="cardinal north" style="left: 50%; top: 9%;">N</div>
+          <div class="cardinal" style="left: 91%; top: 50%;">E</div>
+          <div class="cardinal" style="left: 50%; top: 91%;">S</div>
+          <div class="cardinal" style="left: 9%; top: 50%;">W</div>
+        </div>
+        <div class="needle" aria-hidden="true"></div>
+        <div class="hub">N</div>
+      </div>
+    </section>
+
+    <section class="readout" aria-label="Compass reading">
+      <div class="metric">
+        <div class="label">Heading</div>
+        <div class="value" id="headingValue">--</div>
+      </div>
+      <div class="metric">
+        <div class="label">Direction</div>
+        <div class="value" id="directionValue">--</div>
+      </div>
+    </section>
+
+    <section class="status">
+      <div id="message">Compass starts automatically. Enter a WebSocket address and tap start to send headings.</div>
+      <div class="server-field">
+        <label for="serverUrl">WebSocket server</label>
+        <input class="server-input" id="serverUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="ws://192.168.1.10:8080" value="ws://192.168.1.10:8080">
+      </div>
+      <button class="action" id="startButton" type="button">Start</button>
+    </section>
+  </main>
+
+  <aside class="desktop-block">
+    <div class="desktop-message">
+      <h2>Open this on a phone</h2>
+      <p>This compass uses mobile orientation sensors and is intentionally hidden on desktop browsers.</p>
+    </div>
+  </aside>
+
+  <script>
+    const ring = document.getElementById("ring");
+    const liveDot = document.getElementById("liveDot");
+    const sensorState = document.getElementById("sensorState");
+    const headingValue = document.getElementById("headingValue");
+    const directionValue = document.getElementById("directionValue");
+    const message = document.getElementById("message");
+    const startButton = document.getElementById("startButton");
+    const serverUrl = document.getElementById("serverUrl");
+
+    const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+    let hasReading = false;
+    let compassListening = false;
+    let socket = null;
+
+    function normalizeDegrees(value) {
+      return ((value % 360) + 360) % 360;
+    }
+
+    function directionFromHeading(heading) {
+      return directions[Math.round(heading / 45) % directions.length];
+    }
+
+    function setStatus(text, live) {
+      sensorState.textContent = live ? "Live" : "Waiting";
+      liveDot.classList.toggle("live", live);
+      message.textContent = text;
+    }
+
+    function isSocketReady() {
+      return socket && socket.readyState === WebSocket.OPEN;
+    }
+
+    function connectWebSocket(url) {
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        const ws = new WebSocket(url);
+
+        ws.addEventListener("open", () => {
+          settled = true;
+          socket = ws;
+          resolve(ws);
+        }, { once: true });
+
+        ws.addEventListener("error", () => {
+          if (!settled) {
+            settled = true;
+            reject(new Error("Unable to connect to the WebSocket server."));
+          }
+        }, { once: true });
+
+        ws.addEventListener("close", () => {
+          if (socket === ws) {
+            socket = null;
+            setStatus(compassListening
+              ? "WebSocket disconnected. Tap start again to reconnect."
+              : "WebSocket disconnected. Compass is waiting for motion data.", compassListening);
+            startButton.disabled = false;
+            startButton.textContent = "Start";
+            startButton.style.display = "";
+            serverUrl.disabled = false;
+          }
+        });
+      });
+    }
+
+    function sendHeading(heading) {
+      if (!isSocketReady()) {
+        return;
+      }
+
+      const rounded = Math.round(normalizeDegrees(heading));
+      // socket.send(JSON.stringify({
+      //   type: "heading",
+      //   heading: rounded,
+      //   direction: directionFromHeading(rounded),
+      //   timestamp: new Date().toISOString()
+      // }));
+      socket.send(JSON.stringify({
+        type: "heading",
+        heading: rounded,
+        direction: directionFromHeading(rounded)
+      }));
+    }
+
+    function renderHeading(heading) {
+      const rounded = Math.round(normalizeDegrees(heading));
+      ring.style.setProperty("--dial-rotation", `${-rounded}deg`);
+      headingValue.textContent = `${rounded}°`;
+      directionValue.textContent = directionFromHeading(rounded);
+      hasReading = true;
+      sendHeading(heading);
+      setStatus(isSocketReady()
+        ? "Compass is live and sending headings to the WebSocket server."
+        : "Compass is live. WebSocket is not connected.", true);
+    }
+
+    function getHeading(event) {
+      if (typeof event.webkitCompassHeading === "number") {
+        return event.webkitCompassHeading;
+      }
+
+      if (event.absolute === true && typeof event.alpha === "number") {
+        return 360 - event.alpha;
+      }
+
+      if (event.type === "deviceorientationabsolute" && typeof event.alpha === "number") {
+        return 360 - event.alpha;
+      }
+
+      return null;
+    }
+
+    function handleOrientation(event) {
+      const heading = getHeading(event);
+      if (heading === null || Number.isNaN(heading)) {
+        if (!hasReading) {
+          setStatus("This browser is sending motion data, but not an absolute compass heading.", false);
+        }
+        return;
+      }
+
+      renderHeading(heading);
+    }
+
+    function listenForCompass() {
+      if (compassListening) {
+        return;
+      }
+
+      window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+      window.addEventListener("deviceorientation", handleOrientation, true);
+      compassListening = true;
+      setStatus("Listening for compass data. Tap start when you want to send it to the server.", false);
+    }
+
+    async function startCompassSensors(requestPermission) {
+      if (!("DeviceOrientationEvent" in window)) {
+        setStatus("This phone browser does not expose the DeviceOrientation API.", false);
+        return false;
+      }
+
+      if (compassListening) {
+        return true;
+      }
+
+      try {
+        if (typeof DeviceOrientationEvent.requestPermission === "function") {
+          if (!requestPermission) {
+            setStatus("This browser needs a tap before compass data can start. Tap start to connect and allow motion access.", false);
+            return false;
+          }
+
+          const permission = await DeviceOrientationEvent.requestPermission();
+          if (permission !== "granted") {
+            setStatus("Compass permission was not granted. Tap start and allow motion access.", false);
+            return false;
+          }
+        }
+
+        listenForCompass();
+        return true;
+      } catch (error) {
+        setStatus("Compass access failed. Use Safari or Chrome on a phone over HTTPS.", false);
+        return false;
+      }
+    }
+
+    async function startWebSocket() {
+      const url = serverUrl.value.trim();
+      if (!/^wss?:\/\/.+/i.test(url)) {
+        setStatus("Enter a WebSocket address beginning with ws:// or wss://.", false);
+        serverUrl.focus();
+        return;
+      }
+
+      startButton.disabled = true;
+      startButton.textContent = "Connecting...";
+
+      try {
+        const sensorsReady = await startCompassSensors(true);
+        setStatus("Connecting to the WebSocket server...", false);
+        await connectWebSocket(url);
+        serverUrl.disabled = true;
+        startButton.textContent = "Connected";
+        setStatus(!sensorsReady
+          ? "WebSocket connected. Compass data is not available yet."
+          : hasReading
+          ? "WebSocket connected. Sending headings to the server."
+          : "WebSocket connected. Waiting for the first compass reading.", compassListening);
+      } catch (error) {
+        if (socket) {
+          socket.close();
+        }
+        startButton.disabled = false;
+        startButton.textContent = "Start";
+        serverUrl.disabled = false;
+        setStatus(error.message || "Compass access failed. Use Safari or Chrome on a phone over HTTPS.", false);
+      }
+    }
+
+    startButton.addEventListener("click", startWebSocket);
+
+    if (!window.isSecureContext && location.protocol !== "file:") {
+      setStatus("Compass sensors usually require HTTPS. Open this page from a secure address on your phone.", false);
+    }
+
+    startCompassSensors(false);
+  </script>
+</body>
+</html>
